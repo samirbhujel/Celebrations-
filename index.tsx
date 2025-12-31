@@ -1,0 +1,308 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import { Sparkles, Calendar, Clock, Maximize, Minimize, PartyPopper, Zap } from 'lucide-react';
+
+const VERSES = [
+  { text: "The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning.", ref: "Lamentations 3:22-23" },
+  { text: "Behold, I am doing a new thing; now it springs forth, do you not perceive it?", ref: "Isaiah 43:19" },
+  { text: "Therefore, if anyone is in Christ, he is a new creation. The old has passed away; behold, the new has come.", ref: "2 Corinthians 5:17" }
+];
+
+const GREETINGS = [
+  { lang: 'English', text: 'Happy New Year Anugrah Church!', cls: 'font-fredoka' },
+  { lang: 'Nepali', text: 'नयाँ वर्षको शुभकामना अनुग्रह चर्च!', cls: 'font-nepali' },
+  { lang: 'Roman', text: 'Naya Barshako Shuvakamana Anugrah Church!', cls: 'font-fredoka' }
+];
+
+const CountdownApp = () => {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, totalMs: 0 });
+  const [isCelebration, setIsCelebration] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewFinal, setIsPreviewFinal] = useState(false);
+  const [previewSeconds, setPreviewSeconds] = useState(30);
+  const [verseIndex, setVerseIndex] = useState(0);
+  const [greetingIndex, setGreetingIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const isFinalCountdown = !isCelebration && timeLeft.totalMs > 0 && timeLeft.totalMs <= 30000;
+  const effectiveFinal = isFinalCountdown || isPreviewFinal;
+  const effectiveCelebration = isCelebration || isPreviewMode;
+
+  const calculateTimeLeft = () => {
+    const nextYear = new Date().getFullYear() + 1;
+    const targetDate = new Date(`January 1, ${nextYear} 00:00:00`).getTime();
+    const now = new Date().getTime();
+    const difference = targetDate - now;
+
+    if (difference <= 0) {
+      setIsCelebration(true);
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, totalMs: 0 };
+    }
+
+    return {
+      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((difference % (1000 * 60)) / 1000),
+      totalMs: difference
+    };
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((e) => {
+        console.error(`Error attempting to enable fullscreen: ${e.message}`);
+      });
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Main system timers
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    const verseTimer = setInterval(() => {
+      setVerseIndex(prev => (prev + 1) % VERSES.length);
+    }, 8000);
+
+    const greetingTimer = setInterval(() => {
+      setGreetingIndex(prev => (prev + 1) % GREETINGS.length);
+    }, 4000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(verseTimer);
+      clearInterval(greetingTimer);
+    };
+  }, []);
+
+  // Preview Mode Logic
+  useEffect(() => {
+    let interval: any;
+    if (isPreviewFinal) {
+      interval = setInterval(() => {
+        setPreviewSeconds((prev) => {
+          if (prev <= 1) {
+            setIsPreviewFinal(false);
+            setIsPreviewMode(true);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setPreviewSeconds(30);
+    }
+    return () => clearInterval(interval);
+  }, [isPreviewFinal]);
+
+  // Confetti effects
+  useEffect(() => {
+    if (effectiveCelebration) {
+      const duration = 30 * 1000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval: any = setInterval(() => {
+        const timeLeftNow = animationEnd - Date.now();
+
+        if (timeLeftNow <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 50 * (timeLeftNow / duration);
+        // @ts-ignore
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+        // @ts-ignore
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+      }, 250);
+
+      return () => clearInterval(interval);
+    }
+  }, [effectiveCelebration]);
+
+  const stars = Array.from({ length: 70 }).map((_, i) => (
+    <div
+      key={i}
+      className="star"
+      style={{
+        top: `${Math.random() * 100}%`,
+        left: `${Math.random() * 100}%`,
+        width: `${Math.random() * 3}px`,
+        height: `${Math.random() * 3}px`,
+        // @ts-ignore
+        '--duration': `${2 + Math.random() * 4}s`,
+        animationDelay: `${Math.random() * 5}s`
+      }}
+    />
+  ));
+
+  const TimerBox = ({ label, value }: { label: string, value: number }) => (
+    <div className="flex flex-col items-center justify-center p-4 sm:p-6 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 w-24 sm:w-36 shadow-2xl transition-all duration-500 hover:scale-105 hover:bg-white/10">
+      <span className="text-4xl sm:text-7xl font-bold text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)]">
+        {String(value).padStart(2, '0')}
+      </span>
+      <span className="text-xs sm:text-sm uppercase tracking-[0.2em] text-white/60 mt-2 font-semibold">
+        {label}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="relative w-screen h-screen overflow-hidden flex flex-col items-center justify-center px-4 transition-colors duration-1000 bg-slate-950">
+      {stars}
+      
+      {/* Controls */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+        <button 
+          onClick={() => {
+            setIsPreviewFinal(!isPreviewFinal);
+            setIsPreviewMode(false);
+            setPreviewSeconds(30);
+          }}
+          className={`p-3 rounded-full border transition-all backdrop-blur-sm flex items-center gap-2 px-4 text-sm font-semibold ${
+            isPreviewFinal 
+            ? 'bg-red-500/20 border-red-500/50 text-red-500' 
+            : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'
+          }`}
+          title={isPreviewFinal ? "Stop Preview" : "Test Final 30s"}
+        >
+          <Zap className="w-5 h-5" />
+          <span className="hidden lg:inline">{isPreviewFinal ? "Stop Preview" : "Test Final 30s"}</span>
+        </button>
+
+        <button 
+          onClick={() => {
+            setIsPreviewMode(!isPreviewMode);
+            setIsPreviewFinal(false);
+          }}
+          className={`p-3 rounded-full border transition-all backdrop-blur-sm flex items-center gap-2 px-4 text-sm font-semibold ${
+            isPreviewMode 
+            ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-500' 
+            : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'
+          }`}
+          title={isPreviewMode ? "Back to Countdown" : "Preview Celebration"}
+        >
+          <PartyPopper className="w-5 h-5" />
+          <span className="hidden lg:inline">{isPreviewMode ? "Stop Celebration" : "Test Celebration"}</span>
+        </button>
+
+        <button 
+          onClick={toggleFullscreen}
+          className="p-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-all backdrop-blur-sm"
+          title="Toggle Fullscreen"
+        >
+          {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
+        </button>
+      </div>
+
+      <div className="z-10 text-center w-full max-w-5xl space-y-12 animate-in fade-in zoom-in duration-1000">
+        
+        {/* Main Conditional UI Sections */}
+        {effectiveCelebration ? (
+          /* CELEBRATION MODE */
+          <div className="py-12 space-y-8">
+             <div className="h-28 flex items-center justify-center overflow-hidden">
+                <p key={greetingIndex} className={`${GREETINGS[greetingIndex].cls} text-4xl sm:text-6xl text-yellow-400 font-bold animate-in slide-in-from-top duration-500 drop-shadow-[0_0_20px_rgba(250,204,21,0.5)] px-4 leading-tight`}>
+                  {GREETINGS[greetingIndex].text}
+                </p>
+             </div>
+             
+             <div className="space-y-4">
+                <div className="inline-block p-1 bg-gradient-to-r from-yellow-600 via-yellow-200 to-yellow-600 rounded-full mb-6 shadow-2xl">
+                    <div className="bg-slate-900 px-10 py-4 rounded-full">
+                      <span className="text-yellow-400 font-bold text-2xl uppercase tracking-[0.2em]">A New Season in Christ</span>
+                    </div>
+                </div>
+                <h2 className="text-7xl sm:text-9xl md:text-[10rem] font-fredoka font-bold text-white tracking-widest drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]">
+                  {new Date().getFullYear() + (isCelebration ? 0 : 1)}
+                </h2>
+             </div>
+          </div>
+        ) : effectiveFinal ? (
+          /* FINAL 30s COUNTDOWN MODE - Only Big Letters */
+          <div className="flex flex-col items-center justify-center h-full">
+            <div key={isPreviewFinal ? previewSeconds : timeLeft.seconds} className="animate-in zoom-in fade-in duration-300">
+               <span className="font-fredoka text-[18rem] sm:text-[25rem] md:text-[35rem] leading-none font-bold text-white drop-shadow-[0_0_50px_rgba(255,255,255,0.4)]">
+                 {isPreviewFinal ? previewSeconds : timeLeft.seconds}
+               </span>
+            </div>
+          </div>
+        ) : (
+          /* NORMAL COUNTDOWN MODE */
+          <>
+            <header className="space-y-6">
+              <h1 className="font-fredoka text-5xl sm:text-7xl md:text-8xl text-white font-bold tracking-tight px-4 leading-tight drop-shadow-lg">
+                ANUGRAH CHURCH
+              </h1>
+              
+              <div className="h-10">
+                 <p className="text-yellow-500/60 uppercase tracking-[0.4em] text-sm sm:text-base font-semibold">
+                   Countdown to {new Date().getFullYear() + 1}
+                 </p>
+              </div>
+            </header>
+
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-8 py-8 px-2">
+              <TimerBox label="Days" value={timeLeft.days} />
+              <TimerBox label="Hours" value={timeLeft.hours} />
+              <TimerBox label="Mins" value={timeLeft.minutes} />
+              <TimerBox label="Secs" value={timeLeft.seconds} />
+            </div>
+
+            <footer className="pt-16 max-w-3xl mx-auto w-full">
+              <div className="relative h-32 flex items-center justify-center text-center px-8">
+                <div key={verseIndex} className="animate-in fade-in slide-in-from-bottom duration-1000 max-w-xl">
+                  <p className="text-white/80 text-xl sm:text-2xl font-light italic leading-relaxed mb-4">
+                    "{VERSES[verseIndex].text}"
+                  </p>
+                  <cite className="text-yellow-500 font-semibold text-sm tracking-[0.3em] uppercase block">
+                    — {VERSES[verseIndex].ref}
+                  </cite>
+                </div>
+              </div>
+              
+              <div className="mt-20 flex justify-center items-center space-x-8 text-white/20">
+                 <Calendar className="w-6 h-6" />
+                 <div className="w-2 h-2 rounded-full bg-white/10"></div>
+                 <Clock className="w-6 h-6" />
+                 <div className="w-2 h-2 rounded-full bg-white/10"></div>
+                 <Sparkles className="w-6 h-6" />
+              </div>
+            </footer>
+          </>
+        )}
+      </div>
+
+      {/* Atmospheric lighting */}
+      <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-yellow-500/5 to-transparent pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+      
+      {/* Celebration aura */}
+      {(effectiveCelebration || effectiveFinal) && (
+        <div className={`absolute inset-0 ${effectiveFinal ? 'bg-white/5' : 'bg-yellow-500/5'} animate-pulse pointer-events-none`}></div>
+      )}
+    </div>
+  );
+};
+
+const root = createRoot(document.getElementById('root')!);
+root.render(<CountdownApp />);
